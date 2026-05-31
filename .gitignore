@@ -1,0 +1,18 @@
+# junk
+.DS_Store
+__pycache__/
+*.pyc
+# backups / 旧参考
+*.bak
+app.py.*.bak
+app_v0_reference.py
+# 本地真实内容入口（绝不进公开库）
+run_local.sh
+.env
+# 防止误把真实内容拷进来
+/projects/
+/state/
+# 密钥兜底
+*.key
+*_credentials*
+**/secrets/*

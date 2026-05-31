@@ -1,0 +1,9 @@
+{
+  "title_cn": "示例学位论文 · Demo Thesis",
+  "summary": "演示用的大论文示例，展示硕博论文类别的进度管理。",
+  "current": "选题立项",
+  "blocks": {"选题立项": "doing", "实验执行": "todo", "成文": "todo", "投稿发表": "todo"},
+  "substeps": {"Idea": "doing"},
+  "substep_docs": {},
+  "note": "示例。"
+}

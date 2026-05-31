@@ -1,0 +1,9 @@
+{
+  "title_cn": "示例论文 · Demo Paper",
+  "summary": "这是一篇演示用的示例论文，用来展示科研流水线面板的功能。把环境变量 RP_PROJ_ROOT / RP_STATE_DIR 指向你自己的内容库即可换成真实项目。",
+  "current": "成文",
+  "blocks": {"选题立项": "done", "实验执行": "done", "成文": "doing", "投稿发表": "todo"},
+  "substeps": {"Idea": "done", "验证创新性": "done", "设计实验": "done", "跑实验": "done", "评估结果": "done", "选期刊": "doing", "写稿": "doing", "审稿": "todo", "投稿": "todo", "跟进修回": "todo"},
+  "substep_docs": {},
+  "note": "示例项目。源文件放进 选题立项/ 等阶段文件夹会自动归类。"
+}

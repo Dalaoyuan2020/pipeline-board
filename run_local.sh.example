@@ -1,0 +1,6 @@
+#!/bin/bash
+# 复制为 run_local.sh（已被 gitignore），改成你自己内容库的真实路径
+export RP_PROJ_ROOT="$HOME/你的论文库/projects"
+export RP_STATE_DIR="$HOME/你的论文库/state"
+export RP_PORT=8771
+python3 src/app.py
