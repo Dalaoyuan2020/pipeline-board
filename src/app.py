@@ -309,8 +309,8 @@ body.light ::-webkit-scrollbar-thumb{background:#cdd5e2}
 /* ☀️ 日间模式 (light) · 仅覆盖配色, 不动布局 */
 body.light{background:#eef1f5;color:#1c2530}
 body.light .side,body.light .head,body.light .tabs{background:#fff;border-color:#dbe1ea}
-body.light .side h1,body.light .head .sub,body.light .tab,body.light .line,body.light .proj .meta,body.light .grp,body.light .doccat,body.light .crumb,body.light .docpath{color:#6b7a90}
-body.light .proj,body.light .f{color:#2a3645}
+body.light .side h1,body.light .head .sub,body.light .tab,body.light .line,body.light .proj .meta,body.light .grp,body.light .doccat,body.light .crumb,body.light .docpath{color:#54627a}
+body.light .proj,body.light .f{color:#222b38}
 body.light .proj:hover,body.light .proj.active,body.light .f:hover,body.light .f.active{background:#e8eef7}
 body.light .tab.active{background:#eef1f5;color:#1c2530;border-color:#dbe1ea}
 body.light .ovpanel,body.light .fblock,body.light .subcard,body.light .subpanel,body.light .tplpanel,body.light .viewer,body.light .docbtn{background:#fff;border-color:#dbe1ea}
@@ -357,9 +357,37 @@ body.light .docbtn.active{background:#1d3052;color:#fff}
 .ovcard .ovt{font-size:13px;color:#cfe0f5;margin-bottom:6px;font-weight:600}
 .ovcard .ovc{display:flex;gap:10px;font-size:11px;color:#8da3c4;flex-wrap:wrap}
 .ovcard .ovc .bk{color:#f85149}.ovcard .ovc .dn{color:#58a6ff}
-body.light .ckmsg,body.light .tcard .why{background:#eaf1fd}
-body.light .tcard,body.light .ovcard{background:#fff}
-body.light .tcard .ttl{color:#1c2530}
+/* === 日间模式 · 驾驶舱/任务池 配色加深(白底上提高对比度) === */
+body.light .ckmsg,body.light .tcard .why{background:#eaf1fd;color:#1a3a6b;border:1px solid #cfe0f5}
+body.light .tcard,body.light .ovcard{background:#fff;border-color:#dbe1ea}
+body.light .tcard .ttl,body.light .ovcard .ovt{color:#1c2530}
+/* 任务卡正文与标签 */
+body.light .tcard .trow{color:#2a3645}
+body.light .tcard .trow .lab{color:#1858c4}
+body.light .tcard .en,body.light .ckfoot,body.light .hint,body.light .ckh,body.light .ovcard .ovc{color:#54627a}
+body.light .tcard .proj-tag,body.light .ovcard{background:#f0f3f8}
+body.light .tcard .proj-tag{color:#2a3645}
+body.light .tcard .role{background:#e6ebf3;color:#54627a}
+body.light .tcard .role.main{background:#dff3e6;color:#1a7f3c}
+body.light .tcard .role.fallback{background:#fbf0d8;color:#8a6510}
+body.light .tcard .stt{background:#e6ebf3;color:#54627a}
+body.light .tcard .stt.doing{background:#dff3e6;color:#1a7f3c}
+body.light .tcard .stt.done{background:#e1ecfb;color:#1858c4}
+body.light .tcard .stt.blocked{background:#fbe0de;color:#c0362c}
+/* 空态/计数/侧栏徽章 */
+body.light .ckempty,body.light .ckempty .hint,body.light .ckh .cnt{color:#54627a}
+body.light .proj .tbadge{background:#e1ecfb;color:#1858c4}
+body.light .proj.cockpitnav{color:#1858c4}
+body.light .proj.cockpitnav.active{background:#e8eef7;color:#0d1117}
+/* 最近完成/卡住 */
+body.light .wins .win{color:#1a7f3c}
+body.light .wins .wd{color:#8a93a6}
+body.light .blkrow{color:#2a3645;border-color:#e3e8f0}
+body.light .blkrow .bk,body.light .ovcard .ovc .bk,body.light .tcard .trow.blk .lab{color:#c0362c}
+body.light .ovcard .ovc .dn{color:#1858c4}
+/* 状态总览/子卡 浅字加深 */
+body.light .fblock .step,body.light .fblock .enter,body.light .subcard .tpl,body.light .subcard .tpl-t,body.light .ovpanel .t,body.light .subcard .nofile,body.light .nofile,body.light .empty{color:#54627a}
+body.light .subcard .badge.todo,body.light .bs.todo{background:#e6ebf3;color:#54627a}
 </style></head><body>
 <div class="app">
  <div class="side"><h1>🔬 科研流水线</h1><div id="sidebar"></div>
