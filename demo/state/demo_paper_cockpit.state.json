@@ -1,0 +1,9 @@
+{
+  "title_cn": "示例论文 · 驾驶舱演示",
+  "summary": "演示 Daily Cockpit 的示例小论文：处于改投阶段，含改稿/写作/实验/卡住四类任务。",
+  "current": "投稿发表",
+  "blocks": {"选题立项": "done", "实验执行": "done", "成文": "done", "投稿发表": "doing"},
+  "substeps": {"Idea": "done", "验证创新性": "done", "设计实验": "done", "跑实验": "done", "评估结果": "done", "选期刊": "done", "写稿": "doing", "审稿": "doing", "投稿": "doing", "跟进修回": "doing"},
+  "substep_docs": {},
+  "note": "示例项目，演示任务池与今日驾驶舱。"
+}

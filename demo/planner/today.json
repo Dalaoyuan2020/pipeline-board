@@ -1,0 +1,23 @@
+{
+  "date": "2026-06-01",
+  "mode": "low_pressure",
+  "message": "今天只推进 1–3 件事。完成启动动作也算推进。",
+  "selected_tasks": [
+    {
+      "project": "demo_paper_cockpit",
+      "task_id": "rev-r1-001",
+      "role": "main",
+      "why_today": "最接近重投产出，且能拆成一个低阻力动作（先写 3 句话）。"
+    },
+    {
+      "project": "demo_thesis_cockpit",
+      "task_id": "thesis-review-001",
+      "role": "fallback",
+      "why_today": "保持大论文主线不断线，低压力维护即可。"
+    }
+  ],
+  "recent_wins": [
+    "已完成一个改稿任务的拆解。",
+    "已整理一份 FID 数值对照表。"
+  ]
+}

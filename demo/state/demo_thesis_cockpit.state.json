@@ -1,0 +1,9 @@
+{
+  "title_cn": "示例学位论文 · 驾驶舱演示",
+  "summary": "演示 Daily Cockpit 的示例大论文：处于选题立项，含综述维护/框架定义/章节结构任务。",
+  "current": "选题立项",
+  "blocks": {"选题立项": "doing", "实验执行": "todo", "成文": "todo", "投稿发表": "todo"},
+  "substeps": {"Idea": "done", "验证创新性": "doing", "设计实验": "doing"},
+  "substep_docs": {},
+  "note": "示例项目，演示硕博论文类别的任务池。"
+}

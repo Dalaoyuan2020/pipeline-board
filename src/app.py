@@ -17,6 +17,9 @@ _DEMO = os.path.normpath(os.path.join(_HERE, "..", "demo"))
 PROJ_ROOT = os.path.expanduser(os.environ.get("RP_PROJ_ROOT", os.path.join(_DEMO, "projects")))
 STATE_DIR = os.path.expanduser(os.environ.get("RP_STATE_DIR", os.path.join(_DEMO, "state")))
 PORT = int(os.environ.get("RP_PORT", "8771"))
+# v3.1 Daily Cockpit: planner 目录默认在内容根(STATE_DIR 的父目录)下
+CONTENT_ROOT = os.path.dirname(os.path.realpath(STATE_DIR))
+PLANNER_DIR = os.path.expanduser(os.environ.get("RP_PLANNER_DIR", os.path.join(CONTENT_ROOT, "planner")))
 
 # 4 状态, 每个状态含子项, 每个子项有标准模板要点 (镜像项目 Notion)
 FLOW = [
@@ -50,6 +53,14 @@ def product_line(name):
 def safe_under_root(p):
     return os.path.realpath(p).startswith(os.path.realpath(PROJ_ROOT))
 
+def read_json(path, default):
+    try:
+        if os.path.isfile(path):
+            return json.load(open(path, encoding="utf-8"))
+    except Exception:
+        pass
+    return default
+
 def load_state(name):
     f = os.path.join(STATE_DIR, name + ".state.json")
     if os.path.isfile(f):
@@ -82,13 +93,62 @@ def scan_projects():
                               "ext": os.path.splitext(fn)[1].lower().lstrip(".")})
         files.sort(key=lambda x: -x["mtime"])
         st = load_state(name)
+        # v3.1: 项目任务池 tasks.json
+        tasks_obj = read_json(os.path.join(pdir, "tasks.json"), {"tasks": []})
+        tasks = tasks_obj.get("tasks", []) if isinstance(tasks_obj, dict) else []
+        tc = {"todo": 0, "doing": 0, "done": 0, "blocked": 0}
+        for t in tasks:
+            s = (t.get("status") or "todo")
+            if s in tc: tc[s] += 1
         out.append({"name": name, "line": product_line(name),
                     "title_cn": st.get("title_cn") or name,
                     "versions": len(ledger),
                     "last_why": ledger[-1]["why"] if ledger else "",
                     "last_date": ledger[-1]["date"] if ledger else "",
-                    "state": st, "files": files})
+                    "state": st, "files": files,
+                    "tasks": tasks, "task_counts": tc})
     return out
+
+def normalize_today(today, projects):
+    """补全 today.selected_tasks 的任务详情；空则优雅降级。"""
+    pmap = {p["name"]: p for p in projects}
+    def find_task(proj, tid):
+        p = pmap.get(proj)
+        if not p: return None
+        for t in p.get("tasks", []):
+            if t.get("id") == tid: return t
+        return None
+    if not today or not isinstance(today, dict) or not today.get("selected_tasks"):
+        return {"configured": False,
+                "message": "暂无今日任务。可在 planner/today.json 中添加，或用 prompts/daily_planner.md 让 Agent 生成。",
+                "mode": "low_pressure", "selected_tasks": [], "recent_wins": []}
+    out = []
+    for sel in today.get("selected_tasks", [])[:3]:
+        proj, tid = sel.get("project"), sel.get("task_id")
+        t = find_task(proj, tid)
+        p = pmap.get(proj)
+        out.append({
+            "project": proj,
+            "project_title": (p["title_cn"] if p else proj),
+            "task_id": tid,
+            "role": sel.get("role", "main"),
+            "why_today": sel.get("why_today", ""),
+            "task": t,  # 找不到为 None，前端显示占位
+        })
+    return {"configured": True,
+            "message": today.get("message", "今天只推进 1–3 件事。完成启动动作也算推进。"),
+            "mode": today.get("mode", "low_pressure"),
+            "date": today.get("date", ""),
+            "hidden_count": max(0, len(today.get("selected_tasks", [])) - 3),
+            "selected_tasks": out,
+            "recent_wins": today.get("recent_wins", [])}
+
+def load_today(projects):
+    return normalize_today(read_json(os.path.join(PLANNER_DIR, "today.json"), {}), projects)
+
+def load_done_log():
+    log = read_json(os.path.join(PLANNER_DIR, "done_log.json"), [])
+    return log if isinstance(log, list) else []
 
 class H(BaseHTTPRequestHandler):
     def log_message(self,*a): pass
@@ -100,7 +160,9 @@ class H(BaseHTTPRequestHandler):
         u=urlparse(self.path)
         if u.path=="/": self._s(200,HTML,"text/html")
         elif u.path=="/api/tree":
-            self._s(200,json.dumps({"projects":scan_projects(),"flow":FLOW},ensure_ascii=False))
+            projects=scan_projects()
+            self._s(200,json.dumps({"projects":projects,"flow":FLOW,
+              "today":load_today(projects),"done_log":load_done_log()[-20:]},ensure_ascii=False))
         elif u.path=="/api/file":
             rel=unquote(parse_qs(u.query).get("path",[""])[0]); full=os.path.join(PROJ_ROOT,rel)
             if not safe_under_root(full) or not os.path.isfile(full):
@@ -241,6 +303,44 @@ body.light pre,body.light .viewer pre{background:#f0f3f8}
 body.light .newbtn,body.light .allf{background:#eaf1fd;border-color:#bcd3f7}
 body.light .arrow,body.light .caret{color:#9aa7ba}
 body.light .docbtn.active{background:#1d3052;color:#fff}
+/* v3.1 Daily Cockpit */
+.proj.cockpitnav{color:#79b0f7;font-weight:600;border-bottom:1px solid #232a38;margin-bottom:2px;padding:11px 18px}
+.proj.cockpitnav.active{background:#16243f;border-left-color:#4493f8;color:#fff}
+.proj .tbadge{font-size:10px;background:#1d3052;color:#79b0f7;border-radius:8px;padding:1px 7px;margin-left:6px}
+.cockpit{max-width:880px}
+.ckmsg{background:#16243f;border:1px solid #2f5fa8;border-radius:10px;padding:12px 16px;color:#cfe0f5;font-size:14px;margin-bottom:18px}
+.ckempty{text-align:center;padding:46px 20px;color:#8da3c4;font-size:15px}
+.ckempty .hint{font-size:12px;color:#5a6b85;margin-top:10px}
+.cksec{margin-bottom:22px}
+.ckh{font-size:13px;color:#8da3c4;letter-spacing:1px;margin-bottom:10px;font-weight:600}
+.ckh .cnt,.ckh .tbadge{font-size:11px;color:#5a6b85}
+.tcard{background:#131a27;border:1px solid #232f44;border-radius:12px;padding:15px 18px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.16)}
+.tcard .th{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.tcard .proj-tag{font-size:11px;background:#1a2030;color:#9fb4d4;border-radius:5px;padding:2px 8px}
+.tcard .role{font-size:10px;border-radius:5px;padding:1px 7px;background:#21262d;color:#8da3c4}
+.tcard .role.main{background:#1a3326;color:#3fb950}.tcard .role.fallback{background:#2a2418;color:#d29922}
+.tcard .pr{font-size:12px;font-weight:700;font-family:monospace}
+.tcard .en{font-size:11px;color:#8da3c4}
+.tcard .stt{font-size:10px;border-radius:5px;padding:1px 7px;background:#21262d;color:#7d8da5;margin-left:auto}
+.tcard .stt.doing{background:#1a3326;color:#3fb950}.tcard .stt.done{background:#16263f;color:#58a6ff}.tcard .stt.blocked{background:#3a2020;color:#f85149}
+.tcard .ttl{font-size:16px;color:#fff;font-weight:600;margin-bottom:8px}
+.tcard .why{font-size:13px;color:#cfe0f5;background:#16243f;border-radius:7px;padding:7px 11px;margin-bottom:8px}
+.tcard .trow{font-size:13px;color:#c5d1e0;padding:4px 0;display:flex;gap:8px}
+.tcard .trow .lab{color:#79b0f7;font-size:12px;min-width:74px;flex-shrink:0}
+.tcard .trow.blk .lab{color:#f85149}.tcard .trow i{color:#5a6b85}
+.ckfoot{text-align:center;font-size:12px;color:#5a6b85;margin-top:6px}
+.hint{font-size:12px;color:#5a6b85;margin:6px 0}
+.wins .win{font-size:13px;color:#a7e0b8;padding:3px 0}.wins .wd{color:#5a6b85;font-size:11px;font-family:monospace}.wins .prog{color:#d29922}
+.blkrow{font-size:13px;color:#c5d1e0;padding:5px 0;border-bottom:1px solid #1c2433}.blkrow .bk{color:#f85149;font-size:12px}
+.ovgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.ovcard{background:#131a27;border:1px solid #232f44;border-radius:10px;padding:12px 14px;cursor:pointer;transition:.15s}
+.ovcard:hover{border-color:#4493f8;transform:translateY(-1px)}
+.ovcard .ovt{font-size:13px;color:#cfe0f5;margin-bottom:6px;font-weight:600}
+.ovcard .ovc{display:flex;gap:10px;font-size:11px;color:#8da3c4;flex-wrap:wrap}
+.ovcard .ovc .bk{color:#f85149}.ovcard .ovc .dn{color:#58a6ff}
+body.light .ckmsg,body.light .tcard .why{background:#eaf1fd}
+body.light .tcard,body.light .ovcard{background:#fff}
+body.light .tcard .ttl{color:#1c2530}
 </style></head><body>
 <div class="app">
  <div class="side"><h1>🔬 科研流水线</h1><div id="sidebar"></div>
@@ -251,15 +351,16 @@ body.light .docbtn.active{background:#1d3052;color:#fff}
  <div class="main">
    <div class="head"><h2 id="ptitle">选择一个项目</h2>
      <div class="sub" id="psub"><span class="dot"></span>实时同步 · 每 5 秒自动刷新</div></div>
-   <div class="tabs">
+   <div class="tabs" id="tabs">
      <div class="tab active" id="tab-ov" onclick="setTab('ov')">📋 状态总览</div>
+     <div class="tab" id="tab-task" onclick="setTab('task')">✅ 任务池</div>
      <div class="tab" id="tab-doc" onclick="setTab('doc')">📂 文档库</div>
    </div>
    <div class="content" id="content"></div>
  </div>
 </div>
 <script>
-let DATA={projects:[],flow:[]},cur=null,tab='ov',drillState=null,drillSub=null,curFile=null,docSel='__all__',openGroups={},docCat='org';
+let DATA={projects:[],flow:[],today:{},done_log:[]},cur=null,view='cockpit',tab='ov',drillState=null,drillSub=null,curFile=null,docSel='__all__',openGroups={},docCat='org';
 const LI={"硕博论文":"🎓","小论文":"📄","专利":"⚖️","项目报告":"📋","其他":"📦"};
 const LO=["硕博论文","小论文","专利","项目报告","其他"];
 const README=`# 🔬 科研流水线
@@ -285,27 +386,36 @@ const README=`# 🔬 科研流水线
 *选左边任意项目开始 · 想回到这页点左上角「📖 功能介绍」*`;
 function q(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
 async function load(silent){try{DATA=await(await fetch('/api/tree')).json();renderSide();
-  if(!cur){if(!silent)renderReadme();return}
+  if(view==='cockpit'){if(!(silent&&false))renderCockpit();return}
+  if(view==='readme'){if(!silent)renderReadme();return}
+  if(!cur){renderCockpit();return}
   if(silent&&(drillSub||tab==='doc'))return; // 别打断正在看的文档(点🔄手动刷新)
   render();}catch(e){}}
-function selReadme(){cur=null;drillState=null;drillSub=null;renderReadme()}
-function renderReadme(){renderSide();
+function showTabs(on){const t=document.getElementById('tabs');if(t)t.style.display=on?'':'none'}
+function selCockpit(){view='cockpit';cur=null;drillState=null;drillSub=null;renderCockpit()}
+function selReadme(){view='readme';cur=null;drillState=null;drillSub=null;renderReadme()}
+function renderReadme(){view='readme';renderSide();showTabs(false);
  document.getElementById('ptitle').textContent='科研流水线 · 功能介绍';
  document.getElementById('psub').innerHTML='<span class="dot"></span>本地运行 · 零依赖 · 自动刷新';
  document.getElementById('content').innerHTML='<div class="subpanel"><div class="mdbox">'+md(README)+'</div></div>'}
 function renderSide(){const by={};DATA.projects.forEach(p=>(by[p.line]=by[p.line]||[]).push(p));
- let h=`<div class="proj rdm ${cur===null?'active':''}" onclick="selReadme()">📖 功能介绍 (读我)</div>`;
+ let h=`<div class="proj cockpitnav ${view==='cockpit'?'active':''}" onclick="selCockpit()">🚀 今日驾驶舱</div>`;
+ h+=`<div class="proj rdm ${view==='readme'?'active':''}" onclick="selReadme()">📖 功能介绍 (读我)</div>`;
  LO.forEach(l=>{if(!by[l])return;h+=`<div class="line">${LI[l]||''} ${l}</div>`;
-  by[l].forEach(p=>{h+=`<div class="proj ${p.name===cur?'active':''}" onclick="sel('${q(p.name)}')">${p.title_cn}<div class="meta">${p.state.current||''} · v${p.versions}</div></div>`})});
+  by[l].forEach(p=>{const tc=p.task_counts||{};const badge=(tc.todo||tc.doing||tc.blocked)?`<span class="tbadge">${(tc.todo||0)+(tc.doing||0)}${tc.blocked?' ⚠'+tc.blocked:''}</span>`:'';
+   h+=`<div class="proj ${(p.name===cur&&view==='project')?'active':''}" onclick="sel('${q(p.name)}')">${p.title_cn}${badge}<div class="meta">${p.state.current||''} · v${p.versions}</div></div>`})});
  document.getElementById('sidebar').innerHTML=h}
-function sel(n){cur=n;tab='ov';drillState=null;drillSub=null;curFile=null;setTab('ov')}
-function setTab(t){tab=t;drillState=null;drillSub=null;document.getElementById('tab-ov').classList.toggle('active',t==='ov');document.getElementById('tab-doc').classList.toggle('active',t==='doc');render()}
+function sel(n){view='project';cur=n;tab='ov';drillState=null;drillSub=null;curFile=null;setTab('ov')}
+function setTab(t){tab=t;drillState=null;drillSub=null;showTabs(true);
+ ['ov','task','doc'].forEach(x=>{const e=document.getElementById('tab-'+x);if(e)e.classList.toggle('active',t===x)});
+ render()}
 function refresh(){load();const b=document.getElementById('refbtn');if(b){b.textContent='🔄 已刷新';setTimeout(()=>b.textContent='🔄 刷新',1200)}}
 function P(){return DATA.projects.find(x=>x.name===cur)}
-function render(){const p=P();if(!p)return;
+function render(){const p=P();if(!p){selCockpit();return}
  document.getElementById('ptitle').textContent=p.title_cn;
  document.getElementById('psub').innerHTML=`<span class="dot"></span>${p.line} · 当前: ${p.state.current||'?'} · v${p.versions}`;
- renderSide();
+ renderSide();showTabs(true);
+ if(tab==='task'){renderTaskPool(p);return}
  if(tab==='ov'){drillSub?renderSubPanel(p):drillState?renderStatePanel(p):renderOverview(p)}else renderDocs(p)}
 function ssOf(p,name){return (p.state.substeps&&p.state.substeps[name])||'todo'}
 function renderOverview(p){
@@ -424,6 +534,88 @@ function applyTheme(t){document.body.classList.toggle('light',t==='light');try{l
  const b=document.getElementById('themebtn');if(b)b.textContent=(t==='light')?'🌙 夜间':'☀️ 日间'}
 function toggleTheme(){applyTheme(document.body.classList.contains('light')?'dark':'light')}
 try{applyTheme(localStorage.getItem('rp_theme')||'dark')}catch(e){applyTheme('dark')}
+// ===== v3.1 Daily Cockpit =====
+const PRIO={P0:'#f85149',P1:'#d29922',P2:'#3fb950',P3:'#7d8da5'};
+const ENERGY={low:'🟢低',medium:'🟡中',high:'🔴高'};
+function taskCard(sel){const t=sel.task;
+ if(!t)return `<div class="tcard"><div class="th"><b>${sel.project_title||sel.project}</b><span class="role ${sel.role}">${sel.role}</span></div><div class="nofile">任务 ${sel.task_id} 在该项目任务池里没找到（占位）。检查 tasks.json。</div>${sel.why_today?'<div class="why">📍 今天做：'+sel.why_today+'</div>':''}</div>`;
+ const st=t.status||'todo';
+ return `<div class="tcard">
+   <div class="th"><span class="proj-tag">${sel.project_title||sel.project}</span><span class="role ${sel.role}">${sel.role}</span>
+     <span class="pr" style="color:${PRIO[t.priority]||'#7d8da5'}">${t.priority||'P2'}</span>
+     <span class="en">${ENERGY[t.energy]||''}</span><span class="stt ${st}">${st}</span></div>
+   <div class="ttl">${t.title||''}</div>
+   ${sel.why_today?`<div class="why">📍 为什么今天做：${sel.why_today}</div>`:(t.why?`<div class="why">📍 ${t.why}</div>`:'')}
+   <div class="trow"><span class="lab">▶ 最小启动</span>${t.starter||'<i>暂无启动动作</i>'}</div>
+   <div class="trow"><span class="lab">🎯 实际动作</span>${t.action||'<i>—</i>'}</div>
+   <div class="trow"><span class="lab">✅ 完成标准</span>${t.done_criteria||'<i>暂无完成标准</i>'}</div>
+   ${t.blocker?`<div class="trow blk"><span class="lab">⛔ 卡在</span>${t.blocker}</div>`:''}
+ </div>`;}
+function renderCockpit(){view='cockpit';renderSide();showTabs(false);
+ const T=DATA.today||{};const sel=T.selected_tasks||[];
+ document.getElementById('ptitle').textContent='🚀 今日科研驾驶舱';
+ document.getElementById('psub').innerHTML='<span class="dot"></span>今天只推进 1–3 件事 · 完成最小启动也算推进';
+ let h='<div class="cockpit">';
+ // 顶部低压力提示
+ h+=`<div class="ckmsg">${T.message||'今天只推进 1–3 件事。完成启动动作也算推进。'}</div>`;
+ if(!T.configured){
+   h+=`<div class="ckempty">📭 ${T.message||'暂无今日任务'}<div class="hint">可在 planner/today.json 添加，或用 prompts/daily_planner.md 让 Agent 生成今日任务。</div></div>`;
+ }else{
+   const main=sel.filter(s=>s.role==='main');
+   const sec=sel.filter(s=>['secondary','experiment','thesis'].includes(s.role));
+   const fb=sel.filter(s=>s.role==='fallback');
+   const other=sel.filter(s=>!['main','secondary','experiment','thesis','fallback'].includes(s.role));
+   if(main.length){h+='<div class="cksec"><div class="ckh">🎯 主任务</div>'+main.map(taskCard).join('')+'</div>'}
+   if(sec.length){h+='<div class="cksec"><div class="ckh">📎 次任务</div>'+sec.map(taskCard).join('')+'</div>'}
+   if(fb.length){h+='<div class="cksec"><div class="ckh">🛟 保底任务（不断线即可）</div>'+fb.map(taskCard).join('')+'</div>'}
+   if(other.length){h+='<div class="cksec">'+other.map(taskCard).join('')+'</div>'}
+   if(T.hidden_count>0)h+=`<div class="hint">其余 ${T.hidden_count} 个任务已隐藏，避免过载。</div>`;
+   h+='<div class="ckfoot">完成「最小启动」也算推进。不要求完美，先让任务重新动起来。</div>';
+ }
+ // 最近完成 / 正反馈
+ const wins=(T.recent_wins||[]).slice(0,5);const dl=(DATA.done_log||[]).slice(-5).reverse();
+ if(wins.length||dl.length){
+   h+='<div class="cksec"><div class="ckh">🌱 最近完成（正反馈）</div><div class="wins">';
+   wins.forEach(w=>h+=`<div class="win">✅ ${w}</div>`);
+   dl.forEach(r=>h+=`<div class="win">✅ <span class="wd">${r.date||''}</span> ${r.note||r.task_id||''}${r.result==='progress'?' <span class="prog">(推进)</span>':''}</div>`);
+   h+='</div></div>';
+ }
+ // 当前卡住
+ const blocked=[];DATA.projects.forEach(p=>(p.tasks||[]).forEach(t=>{if((t.status||'')==='blocked')blocked.push({p:p.title_cn,t})}));
+ if(blocked.length){h+='<div class="cksec"><div class="ckh">⛔ 当前卡住</div>';
+   blocked.slice(0,5).forEach(b=>h+=`<div class="blkrow"><b>${b.p}</b> · ${b.t.title} <span class="bk">${b.t.blocker||''}</span></div>`);h+='</div>';}
+ // 项目任务概览
+ const withTasks=DATA.projects.filter(p=>p.tasks&&p.tasks.length);
+ if(withTasks.length){h+='<div class="cksec"><div class="ckh">📊 项目任务概览</div><div class="ovgrid">';
+   withTasks.forEach(p=>{const c=p.task_counts||{};
+     h+=`<div class="ovcard" onclick="sel('${q(p.name)}')"><div class="ovt">${p.title_cn}</div><div class="ovc"><span>待办 ${c.todo||0}</span><span>进行 ${c.doing||0}</span>${c.blocked?`<span class="bk">卡 ${c.blocked}</span>`:''}<span class="dn">完成 ${c.done||0}</span></div></div>`;});
+   h+='</div></div>';}
+ h+='</div>';
+ document.getElementById('content').innerHTML=h;}
+function renderTaskPool(p){const tasks=p.tasks||[];
+ const by=s=>tasks.filter(t=>(t.status||'todo')===s);
+ const sec=(title,arr,emptymsg)=>{if(!arr.length)return emptymsg?`<div class="cksec"><div class="ckh">${title}</div><div class="nofile">${emptymsg}</div></div>`:'';
+   return `<div class="cksec"><div class="ckh">${title} <span class="cnt">${arr.length}</span></div>`+arr.map(t=>poolCard(t)).join('')+'</div>';};
+ let h='<div class="cockpit">';
+ if(!tasks.length){h+=`<div class="ckempty">📭 该项目暂无任务池<div class="hint">在 projects/${p.name}/tasks.json 添加任务，或用 prompts/revision_task_splitter.md 从审稿意见生成。</div></div>`;}
+ else{
+   h+=sec('🔵 进行中',by('doing'));
+   h+=sec('⚪ 待办',by('todo'));
+   h+=sec('⛔ 卡住',by('blocked'));
+   const done=by('done');if(done.length)h+=sec('✅ 最近完成',done.slice(0,5));
+ }
+ h+='</div>';
+ document.getElementById('content').innerHTML=h;}
+function poolCard(t){const st=t.status||'todo';
+ return `<div class="tcard">
+   <div class="th"><span class="pr" style="color:${PRIO[t.priority]||'#7d8da5'}">${t.priority||'P2'}</span>
+     <span class="en">${ENERGY[t.energy]||''}</span><span class="stt ${st}">${st}</span>
+     ${t.stage?`<span class="proj-tag">${t.stage}${t.substep?' · '+t.substep:''}</span>`:''}</div>
+   <div class="ttl">${t.title||''}</div>
+   <div class="trow"><span class="lab">▶ 最小启动</span>${t.starter||'<i>暂无启动动作</i>'}</div>
+   <div class="trow"><span class="lab">✅ 完成标准</span>${t.done_criteria||'<i>暂无完成标准</i>'}</div>
+   ${t.blocker?`<div class="trow blk"><span class="lab">⛔ 卡在</span>${t.blocker}</div>`:''}
+ </div>`;}
 load();setInterval(()=>load(true),5000);
 </script></body></html>"""
 

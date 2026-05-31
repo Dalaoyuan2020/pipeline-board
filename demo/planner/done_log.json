@@ -1,0 +1,5 @@
+[
+  {"date": "2026-05-30", "project": "demo_paper_cockpit", "task_id": "rev-r1-000", "result": "done", "note": "完成审稿意见 #1/#2 的回应草稿。"},
+  {"date": "2026-05-31", "project": "demo_thesis_cockpit", "task_id": "thesis-concept-002", "result": "progress", "note": "框架层级草图画了第一版。"},
+  {"date": "2026-05-31", "project": "demo_paper_cockpit", "task_id": "exp-fid-003", "result": "progress", "note": "整理了已有 FID 数值，未跑新实验。"}
+]
