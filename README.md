@@ -13,6 +13,7 @@
 - 长期未动项目的低压力恢复任务
 - 每个项目有自己的任务池 `projects/<项目>/tasks.json`
 - 今日任务来自 `planner/today.json`，完成记录 `planner/done_log.json`
+- 按类别定制策略：`profiles/paper.json`（小论文）/ `profiles/thesis.json`（硕博论文），影响任务模板与 planner 提示
 - Agent / Prompt 只用于**生成**任务（见 `prompts/`），面板保持**只读展示**
 
 详细见：

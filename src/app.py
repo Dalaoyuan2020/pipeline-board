@@ -20,6 +20,8 @@ PORT = int(os.environ.get("RP_PORT", "8771"))
 # v3.1 Daily Cockpit: planner 目录默认在内容根(STATE_DIR 的父目录)下
 CONTENT_ROOT = os.path.dirname(os.path.realpath(STATE_DIR))
 PLANNER_DIR = os.path.expanduser(os.environ.get("RP_PLANNER_DIR", os.path.join(CONTENT_ROOT, "planner")))
+# profiles：按类别定制的任务策略，随仓库分发（src 的同级 profiles/）
+PROFILES_DIR = os.path.expanduser(os.environ.get("RP_PROFILES_DIR", os.path.normpath(os.path.join(_HERE, "..", "profiles"))))
 
 # 4 状态, 每个状态含子项, 每个子项有标准模板要点 (镜像项目 Notion)
 FLOW = [
@@ -72,6 +74,7 @@ def load_state(name):
 
 def scan_projects():
     out = []
+    profiles = load_profiles()
     if not os.path.isdir(PROJ_ROOT): return out
     for name in sorted(os.listdir(PROJ_ROOT)):
         pdir = os.path.join(PROJ_ROOT, name)
@@ -100,13 +103,17 @@ def scan_projects():
         for t in tasks:
             s = (t.get("status") or "todo")
             if s in tc: tc[s] += 1
-        out.append({"name": name, "line": product_line(name),
+        line = product_line(name)
+        pf = profiles.get(line)
+        out.append({"name": name, "line": line,
                     "title_cn": st.get("title_cn") or name,
                     "versions": len(ledger),
                     "last_why": ledger[-1]["why"] if ledger else "",
                     "last_date": ledger[-1]["date"] if ledger else "",
                     "state": st, "files": files,
-                    "tasks": tasks, "task_counts": tc})
+                    "tasks": tasks, "task_counts": tc,
+                    "profile": pf.get("profile") if pf else None,
+                    "profile_label": pf.get("label") if pf else None})
     return out
 
 def normalize_today(today, projects):
@@ -150,6 +157,17 @@ def load_done_log():
     log = read_json(os.path.join(PLANNER_DIR, "done_log.json"), [])
     return log if isinstance(log, list) else []
 
+def load_profiles():
+    """读 profiles/*.json，建立 line→profile 映射。缺失则返回空 dict（优雅降级）。"""
+    out = {}
+    if os.path.isdir(PROFILES_DIR):
+        for fn in os.listdir(PROFILES_DIR):
+            if not fn.endswith(".json"): continue
+            pf = read_json(os.path.join(PROFILES_DIR, fn), None)
+            if isinstance(pf, dict) and pf.get("line"):
+                out[pf["line"]] = pf
+    return out
+
 class H(BaseHTTPRequestHandler):
     def log_message(self,*a): pass
     def _s(self,c,b,ct="application/json"):
@@ -162,7 +180,8 @@ class H(BaseHTTPRequestHandler):
         elif u.path=="/api/tree":
             projects=scan_projects()
             self._s(200,json.dumps({"projects":projects,"flow":FLOW,
-              "today":load_today(projects),"done_log":load_done_log()[-20:]},ensure_ascii=False))
+              "today":load_today(projects),"done_log":load_done_log()[-20:],
+              "profiles":load_profiles()},ensure_ascii=False))
         elif u.path=="/api/file":
             rel=unquote(parse_qs(u.query).get("path",[""])[0]); full=os.path.join(PROJ_ROOT,rel)
             if not safe_under_root(full) or not os.path.isfile(full):
@@ -360,7 +379,7 @@ body.light .tcard .ttl{color:#1c2530}
  </div>
 </div>
 <script>
-let DATA={projects:[],flow:[],today:{},done_log:[]},cur=null,view='cockpit',tab='ov',drillState=null,drillSub=null,curFile=null,docSel='__all__',openGroups={},docCat='org';
+let DATA={projects:[],flow:[],today:{},done_log:[],profiles:{}},cur=null,view='cockpit',tab='ov',drillState=null,drillSub=null,curFile=null,docSel='__all__',openGroups={},docCat='org';
 const LI={"硕博论文":"🎓","小论文":"📄","专利":"⚖️","项目报告":"📋","其他":"📦"};
 const LO=["硕博论文","小论文","专利","项目报告","其他"];
 const README=`# 🔬 科研流水线
@@ -597,6 +616,8 @@ function renderTaskPool(p){const tasks=p.tasks||[];
  const sec=(title,arr,emptymsg)=>{if(!arr.length)return emptymsg?`<div class="cksec"><div class="ckh">${title}</div><div class="nofile">${emptymsg}</div></div>`:'';
    return `<div class="cksec"><div class="ckh">${title} <span class="cnt">${arr.length}</span></div>`+arr.map(t=>poolCard(t)).join('')+'</div>';};
  let h='<div class="cockpit">';
+ const pf=(DATA.profiles||{})[p.line];
+ if(pf)h+=`<div class="ckmsg">📐 模板：${pf.label||pf.profile} · ${pf.planner_hint||pf.desc||''}</div>`;
  if(!tasks.length){h+=`<div class="ckempty">📭 该项目暂无任务池<div class="hint">在 projects/${p.name}/tasks.json 添加任务，或用 prompts/revision_task_splitter.md 从审稿意见生成。</div></div>`;}
  else{
    h+=sec('🔵 进行中',by('doing'));

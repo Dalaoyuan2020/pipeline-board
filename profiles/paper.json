@@ -1,0 +1,12 @@
+{
+  "profile": "paper",
+  "line": "小论文",
+  "label": "小论文 / 期刊论文",
+  "desc": "目标导向：尽快投出 / 重投。任务优先级偏向接近产出的环节。",
+  "applies_to_prefix": ["paper_"],
+  "task_types": ["revision", "writing", "experiment", "submission"],
+  "priority_bias": ["revision", "writing", "experiment", "concept"],
+  "default_energy": "low",
+  "planner_hint": "优先选最接近投出/重投的任务（revision > writing > experiment）。每个任务给低阻力 starter。",
+  "stage_focus": ["成文", "投稿发表"]
+}

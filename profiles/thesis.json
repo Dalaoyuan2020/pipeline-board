@@ -1,0 +1,12 @@
+{
+  "profile": "thesis",
+  "line": "硕博论文",
+  "label": "硕士 / 博士学位论文",
+  "desc": "主线导向：保持框架与综述不断线。低压力维护优先，避免被整本论文压垮。",
+  "applies_to_prefix": ["thesis_", "phd_"],
+  "task_types": ["concept", "writing", "review", "chapter"],
+  "priority_bias": ["concept", "review", "writing", "chapter"],
+  "default_energy": "low",
+  "planner_hint": "每周保留 1–2 次大论文维护任务作为 fallback，保持主线不断线。框架/综述类任务优先。",
+  "stage_focus": ["选题立项"]
+}
