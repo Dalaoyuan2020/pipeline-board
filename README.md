@@ -1,6 +1,6 @@
 # 🔬 科研流水线 · Research Pipeline Board
 
-一个**零依赖、本地运行**的科研进度面板：把论文 / 专利 / 学位论文从「想法 → 实验 → 成文 → 投稿」的全流程，做成一眼看清状态的看板。一条命令 `python3 src/app.py` 启动，浏览器访问 `localhost:8771`。
+一个**零依赖、本地运行**的科研进度面板 + 今日科研驾驶舱：把论文 / 专利 / 学位论文从「想法 → 实验 → 成文 → 投稿」的全流程做成一眼看清状态的看板，并在首页用「今日驾驶舱」告诉你今天只做哪 1–3 件事。一条命令 `python3 src/app.py` 启动，浏览器访问 `localhost:8771`。
 
 > 设计理念：**流程 / 状态驱动**，不是文件浏览器。进入一个项目先看它"在流程哪一步"，文件是末端内容。
 
@@ -13,7 +13,7 @@
 - 长期未动项目的低压力恢复任务
 - 每个项目有自己的任务池 `projects/<项目>/tasks.json`
 - 今日任务来自 `planner/today.json`，完成记录 `planner/done_log.json`
-- 按类别定制策略：`profiles/paper.json`（小论文）/ `profiles/thesis.json`（硕博论文），影响任务模板与 planner 提示
+- 按类别定制策略：`profiles/paper.json`（小论文）/ `profiles/thesis.json`（硕博论文）。注意：v3.1 的 profiles 是**任务规划策略（task planning profiles）**——只影响 planner 倾向与任务模板提示，**不是**替换整套流程的 workflow profile
 - Agent / Prompt 只用于**生成**任务（见 `prompts/`），面板保持**只读展示**
 
 详细见：

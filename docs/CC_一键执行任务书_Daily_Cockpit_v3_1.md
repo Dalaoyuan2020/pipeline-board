@@ -417,18 +417,20 @@ let mode='cockpit'; // cockpit / readme / project
 
 公开 demo 只能用假数据。
 
+> ⚠️ 命名修订（2026-06-01 加固）：项目名必须用 `paper_*` / `thesis_*` 前缀，否则 `product_line()` 会把它归到"其他"且 profile 失效。故 demo 项目实际命名为 `paper_demo_cockpit` / `thesis_demo_cockpit`（不是 `demo_paper_*`），下表已按实现校正。
+
 新增或复用 demo 项目：
 
 ```text
-demo/projects/demo_paper_cockpit/tasks.json
-demo/projects/demo_thesis_cockpit/tasks.json
-demo/state/demo_paper_cockpit.state.json
-demo/state/demo_thesis_cockpit.state.json
+demo/projects/paper_demo_cockpit/tasks.json
+demo/projects/thesis_demo_cockpit/tasks.json
+demo/state/paper_demo_cockpit.state.json
+demo/state/thesis_demo_cockpit.state.json
 demo/planner/today.json
 demo/planner/done_log.json
 ```
 
-### 6.1 demo_paper_cockpit/tasks.json
+### 6.1 paper_demo_cockpit/tasks.json
 
 至少包含 4 个任务：
 
@@ -443,7 +445,7 @@ demo/planner/done_log.json
 title / starter / action / done_criteria / why / status / priority / energy
 ```
 
-### 6.2 demo_thesis_cockpit/tasks.json
+### 6.2 thesis_demo_cockpit/tasks.json
 
 至少包含 3 个任务：
 

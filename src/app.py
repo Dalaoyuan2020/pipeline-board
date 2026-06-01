@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-科研流水线 Research Pipeline · v2
+科研流水线 Research Pipeline Board · v3.1 Daily Research Cockpit
 - 流程/状态驱动. 状态总览(总览面板) → 点状态 → 进入该状态面板(子项+模板) ; 文档库
 - 零依赖纯标准库, 一条命令 python3 app.py
 - 数据源: text_workshop/projects/ + paper_workbench/data/*.state.json
@@ -53,7 +53,12 @@ def product_line(name):
     return "其他"
 
 def safe_under_root(p):
-    return os.path.realpath(p).startswith(os.path.realpath(PROJ_ROOT))
+    root = os.path.realpath(PROJ_ROOT)
+    target = os.path.realpath(p)
+    try:
+        return os.path.commonpath([root, target]) == root
+    except ValueError:
+        return False
 
 def read_json(path, default):
     try:
@@ -99,7 +104,7 @@ def scan_projects():
         # v3.1: 项目任务池 tasks.json
         tasks_obj = read_json(os.path.join(pdir, "tasks.json"), {"tasks": []})
         tasks = tasks_obj.get("tasks", []) if isinstance(tasks_obj, dict) else []
-        tc = {"todo": 0, "doing": 0, "done": 0, "blocked": 0}
+        tc = {"todo": 0, "doing": 0, "done": 0, "blocked": 0, "dropped": 0}
         for t in tasks:
             s = (t.get("status") or "todo")
             if s in tc: tc[s] += 1
@@ -432,8 +437,10 @@ const README=`# 🔬 科研流水线
 ---
 *选左边任意项目开始 · 想回到这页点左上角「📖 功能介绍」*`;
 function q(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
+// h(): HTML 内容转义(防注入); q(): onclick 参数转义。两者不可互替。
+function h(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 async function load(silent){try{DATA=await(await fetch('/api/tree')).json();renderSide();
-  if(view==='cockpit'){if(!(silent&&false))renderCockpit();return}
+  if(view==='cockpit'){renderCockpit();return}
   if(view==='readme'){if(!silent)renderReadme();return}
   if(!cur){renderCockpit();return}
   if(silent&&(drillSub||tab==='doc'))return; // 别打断正在看的文档(点🔄手动刷新)
@@ -584,90 +591,90 @@ try{applyTheme(localStorage.getItem('rp_theme')||'dark')}catch(e){applyTheme('da
 // ===== v3.1 Daily Cockpit =====
 const PRIO={P0:'#f85149',P1:'#d29922',P2:'#3fb950',P3:'#7d8da5'};
 const ENERGY={low:'🟢低',medium:'🟡中',high:'🔴高'};
-function taskCard(sel){const t=sel.task;
- if(!t)return `<div class="tcard"><div class="th"><b>${sel.project_title||sel.project}</b><span class="role ${sel.role}">${sel.role}</span></div><div class="nofile">任务 ${sel.task_id} 在该项目任务池里没找到（占位）。检查 tasks.json。</div>${sel.why_today?'<div class="why">📍 今天做：'+sel.why_today+'</div>':''}</div>`;
+function taskCard(sel){const t=sel.task;const ptt=h(sel.project_title||sel.project);const role=h(sel.role);
+ if(!t)return `<div class="tcard"><div class="th"><b>${ptt}</b><span class="role ${role}">${role}</span></div><div class="nofile">任务 ${h(sel.task_id)} 在该项目任务池里没找到（占位）。检查 tasks.json。</div>${sel.why_today?'<div class="why">📍 今天做：'+h(sel.why_today)+'</div>':''}</div>`;
  const st=t.status||'todo';
  return `<div class="tcard">
-   <div class="th"><span class="proj-tag">${sel.project_title||sel.project}</span><span class="role ${sel.role}">${sel.role}</span>
-     <span class="pr" style="color:${PRIO[t.priority]||'#7d8da5'}">${t.priority||'P2'}</span>
-     <span class="en">${ENERGY[t.energy]||''}</span><span class="stt ${st}">${st}</span></div>
-   <div class="ttl">${t.title||''}</div>
-   ${sel.why_today?`<div class="why">📍 为什么今天做：${sel.why_today}</div>`:(t.why?`<div class="why">📍 ${t.why}</div>`:'')}
-   <div class="trow"><span class="lab">▶ 最小启动</span>${t.starter||'<i>暂无启动动作</i>'}</div>
-   <div class="trow"><span class="lab">🎯 实际动作</span>${t.action||'<i>—</i>'}</div>
-   <div class="trow"><span class="lab">✅ 完成标准</span>${t.done_criteria||'<i>暂无完成标准</i>'}</div>
-   ${t.blocker?`<div class="trow blk"><span class="lab">⛔ 卡在</span>${t.blocker}</div>`:''}
+   <div class="th"><span class="proj-tag">${ptt}</span><span class="role ${role}">${role}</span>
+     <span class="pr" style="color:${PRIO[t.priority]||'#7d8da5'}">${h(t.priority||'P2')}</span>
+     <span class="en">${ENERGY[t.energy]||''}</span><span class="stt ${h(st)}">${h(st)}</span></div>
+   <div class="ttl">${h(t.title)}</div>
+   ${sel.why_today?`<div class="why">📍 为什么今天做：${h(sel.why_today)}</div>`:(t.why?`<div class="why">📍 ${h(t.why)}</div>`:'')}
+   <div class="trow"><span class="lab">▶ 最小启动</span>${t.starter?h(t.starter):'<i>暂无启动动作</i>'}</div>
+   <div class="trow"><span class="lab">🎯 实际动作</span>${t.action?h(t.action):'<i>—</i>'}</div>
+   <div class="trow"><span class="lab">✅ 完成标准</span>${t.done_criteria?h(t.done_criteria):'<i>暂无完成标准</i>'}</div>
+   ${t.blocker?`<div class="trow blk"><span class="lab">⛔ 卡在</span>${h(t.blocker)}</div>`:''}
  </div>`;}
 function renderCockpit(){view='cockpit';renderSide();showTabs(false);
  const T=DATA.today||{};const sel=T.selected_tasks||[];
  document.getElementById('ptitle').textContent='🚀 今日科研驾驶舱';
  document.getElementById('psub').innerHTML='<span class="dot"></span>今天只推进 1–3 件事 · 完成最小启动也算推进';
- let h='<div class="cockpit">';
+ let o='<div class="cockpit">';
  // 顶部低压力提示
- h+=`<div class="ckmsg">${T.message||'今天只推进 1–3 件事。完成启动动作也算推进。'}</div>`;
+ o+=`<div class="ckmsg">${h(T.message||'今天只推进 1–3 件事。完成启动动作也算推进。')}</div>`;
  if(!T.configured){
-   h+=`<div class="ckempty">📭 ${T.message||'暂无今日任务'}<div class="hint">可在 planner/today.json 添加，或用 prompts/daily_planner.md 让 Agent 生成今日任务。</div></div>`;
+   o+=`<div class="ckempty">📭 ${h(T.message||'暂无今日任务')}<div class="hint">可在 planner/today.json 添加，或用 prompts/daily_planner.md 让 Agent 生成今日任务。</div></div>`;
  }else{
    const main=sel.filter(s=>s.role==='main');
    const sec=sel.filter(s=>['secondary','experiment','thesis'].includes(s.role));
    const fb=sel.filter(s=>s.role==='fallback');
    const other=sel.filter(s=>!['main','secondary','experiment','thesis','fallback'].includes(s.role));
-   if(main.length){h+='<div class="cksec"><div class="ckh">🎯 主任务</div>'+main.map(taskCard).join('')+'</div>'}
-   if(sec.length){h+='<div class="cksec"><div class="ckh">📎 次任务</div>'+sec.map(taskCard).join('')+'</div>'}
-   if(fb.length){h+='<div class="cksec"><div class="ckh">🛟 保底任务（不断线即可）</div>'+fb.map(taskCard).join('')+'</div>'}
-   if(other.length){h+='<div class="cksec">'+other.map(taskCard).join('')+'</div>'}
-   if(T.hidden_count>0)h+=`<div class="hint">其余 ${T.hidden_count} 个任务已隐藏，避免过载。</div>`;
-   h+='<div class="ckfoot">完成「最小启动」也算推进。不要求完美，先让任务重新动起来。</div>';
+   if(main.length){o+='<div class="cksec"><div class="ckh">🎯 主任务</div>'+main.map(taskCard).join('')+'</div>'}
+   if(sec.length){o+='<div class="cksec"><div class="ckh">📎 次任务</div>'+sec.map(taskCard).join('')+'</div>'}
+   if(fb.length){o+='<div class="cksec"><div class="ckh">🛟 保底任务（不断线即可）</div>'+fb.map(taskCard).join('')+'</div>'}
+   if(other.length){o+='<div class="cksec">'+other.map(taskCard).join('')+'</div>'}
+   if(T.hidden_count>0)o+=`<div class="hint">其余 ${T.hidden_count} 个任务已隐藏，避免过载。</div>`;
+   o+='<div class="ckfoot">完成「最小启动」也算推进。不要求完美，先让任务重新动起来。</div>';
  }
  // 最近完成 / 正反馈
  const wins=(T.recent_wins||[]).slice(0,5);const dl=(DATA.done_log||[]).slice(-5).reverse();
  if(wins.length||dl.length){
-   h+='<div class="cksec"><div class="ckh">🌱 最近完成（正反馈）</div><div class="wins">';
-   wins.forEach(w=>h+=`<div class="win">✅ ${w}</div>`);
-   dl.forEach(r=>h+=`<div class="win">✅ <span class="wd">${r.date||''}</span> ${r.note||r.task_id||''}${r.result==='progress'?' <span class="prog">(推进)</span>':''}</div>`);
-   h+='</div></div>';
+   o+='<div class="cksec"><div class="ckh">🌱 最近完成（正反馈）</div><div class="wins">';
+   wins.forEach(w=>o+=`<div class="win">✅ ${h(w)}</div>`);
+   dl.forEach(r=>o+=`<div class="win">✅ <span class="wd">${h(r.date||'')}</span> ${h(r.note||r.task_id||'')}${r.result==='progress'?' <span class="prog">(推进)</span>':''}</div>`);
+   o+='</div></div>';
  }
  // 当前卡住
  const blocked=[];DATA.projects.forEach(p=>(p.tasks||[]).forEach(t=>{if((t.status||'')==='blocked')blocked.push({p:p.title_cn,t})}));
- if(blocked.length){h+='<div class="cksec"><div class="ckh">⛔ 当前卡住</div>';
-   blocked.slice(0,5).forEach(b=>h+=`<div class="blkrow"><b>${b.p}</b> · ${b.t.title} <span class="bk">${b.t.blocker||''}</span></div>`);h+='</div>';}
+ if(blocked.length){o+='<div class="cksec"><div class="ckh">⛔ 当前卡住</div>';
+   blocked.slice(0,5).forEach(b=>o+=`<div class="blkrow"><b>${h(b.p)}</b> · ${h(b.t.title)} <span class="bk">${h(b.t.blocker||'')}</span></div>`);o+='</div>';}
  // 项目任务概览
  const withTasks=DATA.projects.filter(p=>p.tasks&&p.tasks.length);
- if(withTasks.length){h+='<div class="cksec"><div class="ckh">📊 项目任务概览</div><div class="ovgrid">';
+ if(withTasks.length){o+='<div class="cksec"><div class="ckh">📊 项目任务概览</div><div class="ovgrid">';
    withTasks.forEach(p=>{const c=p.task_counts||{};
-     h+=`<div class="ovcard" onclick="sel('${q(p.name)}')"><div class="ovt">${p.title_cn}</div><div class="ovc"><span>待办 ${c.todo||0}</span><span>进行 ${c.doing||0}</span>${c.blocked?`<span class="bk">卡 ${c.blocked}</span>`:''}<span class="dn">完成 ${c.done||0}</span></div></div>`;});
-   h+='</div></div>';}
- h+='</div>';
- document.getElementById('content').innerHTML=h;}
+     o+=`<div class="ovcard" onclick="sel('${q(p.name)}')"><div class="ovt">${h(p.title_cn)}</div><div class="ovc"><span>待办 ${c.todo||0}</span><span>进行 ${c.doing||0}</span>${c.blocked?`<span class="bk">卡 ${c.blocked}</span>`:''}<span class="dn">完成 ${c.done||0}</span></div></div>`;});
+   o+='</div></div>';}
+ o+='</div>';
+ document.getElementById('content').innerHTML=o;}
 function renderTaskPool(p){const tasks=p.tasks||[];
  const by=s=>tasks.filter(t=>(t.status||'todo')===s);
  const sec=(title,arr,emptymsg)=>{if(!arr.length)return emptymsg?`<div class="cksec"><div class="ckh">${title}</div><div class="nofile">${emptymsg}</div></div>`:'';
    return `<div class="cksec"><div class="ckh">${title} <span class="cnt">${arr.length}</span></div>`+arr.map(t=>poolCard(t)).join('')+'</div>';};
- let h='<div class="cockpit">';
+ let o='<div class="cockpit">';
  const pf=(DATA.profiles||{})[p.line];
- if(pf)h+=`<div class="ckmsg">📐 模板：${pf.label||pf.profile} · ${pf.planner_hint||pf.desc||''}</div>`;
- if(!tasks.length){h+=`<div class="ckempty">📭 该项目暂无任务池<div class="hint">在 projects/${p.name}/tasks.json 添加任务，或用 prompts/revision_task_splitter.md 从审稿意见生成。</div></div>`;}
+ if(pf)o+=`<div class="ckmsg">📐 模板：${h(pf.label||pf.profile)} · ${h(pf.planner_hint||pf.desc||'')}</div>`;
+ if(!tasks.length){o+=`<div class="ckempty">📭 该项目暂无任务池<div class="hint">在 projects/${h(p.name)}/tasks.json 添加任务，或用 prompts/revision_task_splitter.md 从审稿意见生成。</div></div>`;}
  else{
-   h+=sec('🔵 进行中',by('doing'));
-   h+=sec('⚪ 待办',by('todo'));
-   h+=sec('⛔ 卡住',by('blocked'));
-   const done=by('done');if(done.length)h+=sec('✅ 最近完成',done.slice(0,5));
+   o+=sec('🔵 进行中',by('doing'));
+   o+=sec('⚪ 待办',by('todo'));
+   o+=sec('⛔ 卡住',by('blocked'));
+   const done=by('done');if(done.length)o+=sec('✅ 最近完成',done.slice(0,5));
  }
- h+='</div>';
- document.getElementById('content').innerHTML=h;}
+ o+='</div>';
+ document.getElementById('content').innerHTML=o;}
 function poolCard(t){const st=t.status||'todo';
  return `<div class="tcard">
-   <div class="th"><span class="pr" style="color:${PRIO[t.priority]||'#7d8da5'}">${t.priority||'P2'}</span>
-     <span class="en">${ENERGY[t.energy]||''}</span><span class="stt ${st}">${st}</span>
-     ${t.stage?`<span class="proj-tag">${t.stage}${t.substep?' · '+t.substep:''}</span>`:''}</div>
-   <div class="ttl">${t.title||''}</div>
-   <div class="trow"><span class="lab">▶ 最小启动</span>${t.starter||'<i>暂无启动动作</i>'}</div>
-   <div class="trow"><span class="lab">✅ 完成标准</span>${t.done_criteria||'<i>暂无完成标准</i>'}</div>
-   ${t.blocker?`<div class="trow blk"><span class="lab">⛔ 卡在</span>${t.blocker}</div>`:''}
+   <div class="th"><span class="pr" style="color:${PRIO[t.priority]||'#7d8da5'}">${h(t.priority||'P2')}</span>
+     <span class="en">${ENERGY[t.energy]||''}</span><span class="stt ${h(st)}">${h(st)}</span>
+     ${t.stage?`<span class="proj-tag">${h(t.stage)}${t.substep?' · '+h(t.substep):''}</span>`:''}</div>
+   <div class="ttl">${h(t.title)}</div>
+   <div class="trow"><span class="lab">▶ 最小启动</span>${t.starter?h(t.starter):'<i>暂无启动动作</i>'}</div>
+   <div class="trow"><span class="lab">✅ 完成标准</span>${t.done_criteria?h(t.done_criteria):'<i>暂无完成标准</i>'}</div>
+   ${t.blocker?`<div class="trow blk"><span class="lab">⛔ 卡在</span>${h(t.blocker)}</div>`:''}
  </div>`;}
 load();setInterval(()=>load(true),5000);
 </script></body></html>"""
 
 if __name__=="__main__":
-    print(f"🔬 科研流水线 v2: http://localhost:{PORT}")
+    print(f"🔬 科研流水线 v3.1 Daily Cockpit: http://localhost:{PORT}")
     HTTPServer(("127.0.0.1",PORT),H).serve_forever()
